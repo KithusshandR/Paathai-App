@@ -1,4 +1,8 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -28,7 +32,6 @@ class PaathaiMap extends StatefulWidget {
 class _PaathaiMapState extends State<PaathaiMap> {
   CameraPosition _initialLocation =
       CameraPosition(target: LatLng(9.66845, 80.00742));
-
 
   late GoogleMapController mapController;
 
@@ -92,12 +95,12 @@ class _PaathaiMapState extends State<PaathaiMap> {
 
   Future<bool> _calculateDistance() async {
     try {
-
+  
       List<Location> startPlacemark = await locationFromAddress(_startAddress);
       List<Location> destinationPlacemark =
           await locationFromAddress(_destinationAddress);
 
-
+   
       double startLatitude = _startAddress == _currentAddress
           ? _currentPosition.latitude
           : startPlacemark[0].latitude;
@@ -121,8 +124,9 @@ class _PaathaiMapState extends State<PaathaiMap> {
           title: 'Start $startCoordinatesString',
           snippet: _startAddress,
         ),
-        icon: BitmapDescriptor.defaultMarker,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
       );
+
 
       Marker destinationMarker = Marker(
         markerId: MarkerId(destinationCoordinatesString),
@@ -131,10 +135,10 @@ class _PaathaiMapState extends State<PaathaiMap> {
           title: 'Destination $destinationCoordinatesString',
           snippet: _destinationAddress,
         ),
-        icon: BitmapDescriptor.defaultMarker,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
       );
 
-
+    
       markers.add(startMarker);
       markers.add(destinationMarker);
 
@@ -144,7 +148,6 @@ class _PaathaiMapState extends State<PaathaiMap> {
       print(
         'DESTINATION COORDINATES: ($destinationLatitude, $destinationLongitude)',
       );
-
 
       double miny = (startLatitude <= destinationLatitude)
           ? startLatitude
@@ -165,6 +168,7 @@ class _PaathaiMapState extends State<PaathaiMap> {
       double northEastLatitude = maxy;
       double northEastLongitude = maxx;
 
+
       mapController.animateCamera(
         CameraUpdate.newLatLngBounds(
           LatLngBounds(
@@ -176,6 +180,26 @@ class _PaathaiMapState extends State<PaathaiMap> {
       );
 
 
+
+      await _createPolylines(startLatitude, startLongitude, destinationLatitude,
+          destinationLongitude);
+
+      double totalDistance = 0.0;
+
+      for (int i = 0; i < polylineCoordinates.length - 1; i++) {
+        totalDistance += _coordinateDistance(
+          polylineCoordinates[i].latitude,
+          polylineCoordinates[i].longitude,
+          polylineCoordinates[i + 1].latitude,
+          polylineCoordinates[i + 1].longitude,
+        );
+      }
+
+      setState(() {
+        _placeDistance = totalDistance.toStringAsFixed(2);
+        print('DISTANCE: $_placeDistance km');
+      });
+
       return true;
     } catch (e) {
       print(e);
@@ -183,9 +207,54 @@ class _PaathaiMapState extends State<PaathaiMap> {
     return false;
   }
 
+  late PolylinePoints polylinePoints;
+  Map<PolylineId, Polyline> polylines = {};
+  List<LatLng> polylineCoordinates = [];
+
+  _createPolylines(
+    double startLatitude,
+    double startLongitude,
+    double destinationLatitude,
+    double destinationLongitude,
+  ) async {
+    polylinePoints = PolylinePoints();
+    PolylineResult result = await polylinePoints.getRouteBetweenCoordinates(
+      "AIzaSyDM8U1e_9FPJqaCu4Vv0YrMxj6vqEyWyiA",
+      PointLatLng(startLatitude, startLongitude),
+      PointLatLng(destinationLatitude, destinationLongitude),
+      travelMode: TravelMode.transit,    
+    );
+
+    if (result.points.isNotEmpty) {
+      result.points.forEach((PointLatLng point) {
+        polylineCoordinates.add(LatLng(point.latitude, point.longitude));
+      });
+    }
+
+    PolylineId id = PolylineId('poly');
+    Polyline polyline = Polyline(
+      polylineId: id,
+      color: Colors.red,
+      points: polylineCoordinates,
+      width: 3,
+      
+    );
+    polylines[id] = polyline;
+  }
+
+  String? _placeDistance;
+
+  double _coordinateDistance(lat1, lon1, lat2, lon2) {
+    var p = 0.017453292519943295;
+    var c = cos;
+    var a = 0.5 -
+        c((lat2 - lat1) * p) / 2 +
+        c(lat1 * p) * c(lat2 * p) * (1 - c((lon2 - lon1) * p)) / 2;
+    return 12742 * asin(sqrt(a));
+  }
+
   @override
   Widget build(BuildContext context) {
-
     var height = MediaQuery.of(context).size.height;
     var width = MediaQuery.of(context).size.width;
 
@@ -201,8 +270,11 @@ class _PaathaiMapState extends State<PaathaiMap> {
               myLocationEnabled: true,
               myLocationButtonEnabled: false,
               mapType: MapType.normal,
+              trafficEnabled:true,
               zoomGesturesEnabled: true,
               zoomControlsEnabled: false,
+              mapToolbarEnabled: true,            
+              polylines: Set<Polyline>.of(polylines.values),
               onMapCreated: (GoogleMapController controller) {
                 mapController = controller;
               },
@@ -225,13 +297,11 @@ class _PaathaiMapState extends State<PaathaiMap> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
-
                           Start(width),
-
                           SizedBox(height: 10),
-
                           End(width, context),
-                          
+                          SizedBox(height: 10),
+                          Distance(),
                           SizedBox(height: 5),
                         ],
                       ),
@@ -245,13 +315,13 @@ class _PaathaiMapState extends State<PaathaiMap> {
                 alignment: Alignment.bottomRight,
                 child: Padding(
                   padding: const EdgeInsets.only(
-                    bottom: 20,
+                    bottom: 50,
                     right: 20,
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(10),
                     child: Material(
-                      color: Colors.white, 
+                      color: Colors.white,
                       child: InkWell(
                         child: SizedBox(
                           width: 40,
@@ -308,8 +378,8 @@ class _PaathaiMapState extends State<PaathaiMap> {
                           topLeft: Radius.circular(10),
                         ),
                         child: Material(
-                          color: Colors.white, 
-                          child: InkWell(    
+                          color: Colors.white,
+                          child: InkWell(
                             child: SizedBox(
                               width: 40,
                               height: 40,
@@ -355,150 +425,145 @@ class _PaathaiMapState extends State<PaathaiMap> {
     );
   }
 
-  Container Start(double width) {
-    return Container(
-                          width: width * 0.8,
-                          child: TextField(
-                            onChanged: (value) {
-                              setState(() {
-                                _startAddress = value;
-                              });
-                            },
-                            decoration: new InputDecoration(
-                              filled: true,
-                              fillColor: Colors.white,
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(10.0),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.shade400,
-                                  width: 2,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(10.0),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.blue.shade300,
-                                  width: 2,
-                                ),
-                              ),
-                              contentPadding: EdgeInsets.all(15),
-                              hintText: 'Start',
-                              suffixIcon: IconButton(
-                                icon: Icon(Icons.my_location),
-                                onPressed: () {
-                                  _getAddress();
-                                  startAddressController.text =
-                                      _currentAddress;
-                                  _startAddress = _currentAddress;
-                                },
-                              ),
+  Visibility Distance() {
+    return Visibility(
+                          visible: _placeDistance == null ? false : true,
+                          child: Text(
+                            'DISTANCE: $_placeDistance km',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
                             ),
-                            controller: startAddressController,
-                            focusNode: startAddressFocusNode,
                           ),
                         );
   }
 
+  Container Start(double width) {
+    return Container(
+      width: width * 0.8,
+      child: TextField(
+        onChanged: (value) {
+          setState(() {
+            _startAddress = value;
+          });
+        },
+        decoration: new InputDecoration(
+          filled: true,
+          fillColor: Colors.white,
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(
+              Radius.circular(10.0),
+            ),
+            borderSide: BorderSide(
+              color: Colors.grey.shade400,
+              width: 2,
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(
+              Radius.circular(10.0),
+            ),
+            borderSide: BorderSide(
+              color: Colors.blue.shade300,
+              width: 2,
+            ),
+          ),
+          contentPadding: EdgeInsets.all(15),
+          hintText: 'Start',
+          suffixIcon: IconButton(
+            icon: Icon(Icons.my_location),
+            onPressed: () {
+              _getAddress();
+              startAddressController.text = _currentAddress;
+              _startAddress = _currentAddress;
+            },
+          ),
+        ),
+        controller: startAddressController,
+        focusNode: startAddressFocusNode,
+      ),
+    );
+  }
+
   Container End(double width, BuildContext context) {
     return Container(
-                          width: width * 0.8,
-                          child: TextField(
-                            onChanged: (value) {
-                              setState(() {
-                                _destinationAddress = value;
-                              });
-                            },
-                            decoration: new InputDecoration(
-                              filled: true,
-                              fillColor: Colors.white,
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(10.0),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.shade400,
-                                  width: 2,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(10.0),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.blue.shade300,
-                                  width: 2,
-                                ),
-                              ),
-                              contentPadding: EdgeInsets.all(15),
-                              hintText: 'End',
-                              suffixIcon: ConstrainedBox(
-                                constraints: BoxConstraints.tightFor(
-                                    width:20, height: 20),
-                                child: ElevatedButton(
-                                  onPressed: (_startAddress != '' &&
-                                          _destinationAddress != '')
-                                      ? () async {
-                                          startAddressFocusNode.unfocus();
-                                          desrinationAddressFocusNode
-                                              .unfocus();
-                                          setState(() {
-                                            if (markers.isNotEmpty)
-                                              markers.clear();
-                                            // if (polylines.isNotEmpty)
-                                            //   polylines.clear();
-                                            // if (polylineCoordinates.isNotEmpty)
-                                            //   polylineCoordinates.clear();
-                                            // _placeDistance = null;
-                                          });
-                                          _calculateDistance()
-                                              .then((isCalculated) {
-                                            if (isCalculated) {
-                                              ScaffoldMessenger.of(context)
-                                                  .showSnackBar(
-                                                SnackBar(
-                                                  content: Text(
-                                                      'Places View Sucessfully'),
-                                                ),
-                                              );
-                                            } else {
-                                              ScaffoldMessenger.of(context)
-                                                  .showSnackBar(
-                                                SnackBar(
-                                                  content:
-                                                      Text('Error Place'),
-                                                ),
-                                              );
-                                            }
-                                          });
-                                        }
-                                      : null,
-                                  
-                                    child: Text(
-                                      'Go'.toUpperCase(),
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10.0,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  
-                                  style: ElevatedButton.styleFrom(
-                                    primary: Colors.blue,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius:
-                                          BorderRadius.circular(10.0),
-                                    ),
-                                  ),
-                                ),
-                              ),
+      width: width * 0.8,
+      child: TextField(
+        onChanged: (value) {
+          setState(() {
+            _destinationAddress = value;
+          });
+        },
+        decoration: new InputDecoration(
+          filled: true,
+          fillColor: Colors.white,
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(
+              Radius.circular(10.0),
+            ),
+            borderSide: BorderSide(
+              color: Colors.grey.shade400,
+              width: 2,
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(
+              Radius.circular(10.0),
+            ),
+            borderSide: BorderSide(
+              color: Colors.blue.shade300,
+              width: 2,
+            ),
+          ),
+          contentPadding: EdgeInsets.all(15),
+          hintText: 'End',
+          suffixIcon: ConstrainedBox(
+            constraints: BoxConstraints.tightFor(width: 20, height: 20),
+            child: ElevatedButton(
+              onPressed: (_startAddress != '' && _destinationAddress != '')
+                  ? () async {
+                      startAddressFocusNode.unfocus();
+                      desrinationAddressFocusNode.unfocus();
+                      setState(() {
+                        if (markers.isNotEmpty) markers.clear();
+                        if (polylines.isNotEmpty) polylines.clear();
+                        if (polylineCoordinates.isNotEmpty)
+                          polylineCoordinates.clear();
+                        _placeDistance = null;
+                      });
+                      _calculateDistance().then((isCalculated) {
+                        if (isCalculated) {
+                     
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Invalid Place'),
                             ),
-                            controller: destinationAddressController,
-                            focusNode: desrinationAddressFocusNode,
-                          ),
-                        );
+                          );
+                        }
+                      });
+                    }
+                  : null,
+              child: Text(
+                'Go'.toUpperCase(),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 10.0,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                primary: Colors.blue,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10.0),
+                ),
+              ),
+            ),
+          ),
+        ),
+        controller: destinationAddressController,
+        focusNode: desrinationAddressFocusNode,
+      ),
+    );
   }
 }
