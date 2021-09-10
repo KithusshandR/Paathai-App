@@ -1,5 +1,8 @@
 import 'dart:math';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
@@ -7,7 +10,9 @@ import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   runApp(MyApp());
 }
 
@@ -30,6 +35,53 @@ class PaathaiMap extends StatefulWidget {
 }
 
 class _PaathaiMapState extends State<PaathaiMap> {
+  late BitmapDescriptor busIcon;
+  // BitmapDescriptor? destinationIcon;
+
+  //Custom icon for bus stops(MARKER)
+  void setSourceAndDestinationIcons() async {
+    busIcon = await BitmapDescriptor.fromAssetImage(
+        ImageConfiguration(devicePixelRatio: 2.5), 'assets/driving_pin.png');
+    // destinationIcon = await BitmapDescriptor.fromAssetImage(
+    //     ImageConfiguration(devicePixelRatio: 2.5),
+    //     'assets/destination_map_marker.png');
+  }
+
+  Future<void> addUser() {
+    // Call the user's CollectionReference to add a new user
+    return FirebaseFirestore.instance
+        .collection('users')
+        .add({
+          'busId': 100, // John Doe
+          'latitude': 9.66845, // Stokes and Sons
+          'longitude': 80.00742 // 42
+        })
+        .then((value) => print("User Added"))
+        .catchError((error) => print("Failed to add user: $error"));
+  }
+
+  fetchAllContact() async {
+    // List contactList = [];
+    await FirebaseFirestore.instance
+        .collection("users")
+        .get()
+        .then((querySnapshot) {
+      querySnapshot.docs.forEach((result) {
+        print(result.data());
+        listnew.add(result.data());
+        markers.add(
+          Marker(
+              markerId: MarkerId(result.data()['busId'].toString()),
+              position:
+                  LatLng(result.data()['latitude'], result.data()['longitude']),
+              icon: busIcon),
+        );
+      });
+    });
+    print(listnew);
+    // return contactList;
+  }
+
   CameraPosition _initialLocation =
       CameraPosition(target: LatLng(9.66845, 80.00742));
 
@@ -59,10 +111,75 @@ class _PaathaiMapState extends State<PaathaiMap> {
     });
   }
 
+  late DocumentSnapshot snapshot;
+  var data;
+  bool _loader = false;
+  Future<dynamic> getData() async {
+    setState(() {
+      _loader = true;
+    });
+    final document = FirebaseFirestore.instance
+        .collection("arrayroutes")
+        .get();
+
+  String startLatString= 9.66159.toString();
+  String startLonString = 80.02541.toString();
+  String StartlatlanString = startLatString +', '+startLonString ;
+    QuerySnapshot querySnapshot =
+        await FirebaseFirestore.instance.collection('newroutes')
+            .where('points', arrayContains: {"lon": StartlatlanString}).get();
+
+    // Get data from docs and convert map to List
+    final allData = querySnapshot.docs.map((doc) => doc.data()).toList();
+    //for a specific field
+    // final allData =
+    //         querySnapshot.docs.map((doc) => doc.get('points')).toList();
+    // listnew.add(allData[0]);
+    // print(listnew);
+    listnew.clear();
+    print(listnew.length == 0 ? "1" : "2");
+    for (var allitem in allData) {
+      listnew.add(allitem);
+    }
+    for (var item in listnew) {
+      print("---item----");
+      // print(item['points']);
+      for (var subItem in item['points']) {
+        print(subItem);
+      }
+      print("----item---");
+    }
+    // listnew.map((name) {
+    //   print("---item----");
+    // print(name);
+    // print("---item----");
+    // }).toList();
+    print("-------");
+    print(allData);
+    print("-------");
+
+    // QuerySnapshot querySnapshot = await FirebaseFirestore.instance.collection('arrayroutes').get();
+    // final allData = querySnapshot.docs.map((doc) => doc.data()).toList();
+    // print(allData);
+    // print("-------");
+    setState(() {
+      _loader = false;
+    });
+  }
+
+  receiveData() {
+    print(listnew.map((doc) => doc.data()).toList());
+  }
+
   @override
   void initState() {
     super.initState();
-    _getCurrentLocation();
+    // _getCurrentLocation();
+    // setSourceAndDestinationIcons();
+    // fetchAllContact();
+    // getData();
+    print("-----------");
+    // print(_startAddress);
   }
 
   final startAddressController = TextEditingController();
@@ -89,18 +206,22 @@ class _PaathaiMapState extends State<PaathaiMap> {
   final destinationAddressController = TextEditingController();
   String _destinationAddress = '';
   Set<Marker> markers = {};
+  List listnew = [];
 
   final startAddressFocusNode = FocusNode();
   final desrinationAddressFocusNode = FocusNode();
 
   Future<bool> _calculateDistance() async {
     try {
-  
       List<Location> startPlacemark = await locationFromAddress(_startAddress);
       List<Location> destinationPlacemark =
           await locationFromAddress(_destinationAddress);
 
-   
+          print("startPlacemark");
+          print(startPlacemark);
+          print("startPlacemark");
+        
+      // startLatitude, startLongitude are the root lat,lan. everything start from here
       double startLatitude = _startAddress == _currentAddress
           ? _currentPosition.latitude
           : startPlacemark[0].latitude;
@@ -116,7 +237,6 @@ class _PaathaiMapState extends State<PaathaiMap> {
       String destinationCoordinatesString =
           '($destinationLatitude, $destinationLongitude)';
 
-
       Marker startMarker = Marker(
         markerId: MarkerId(startCoordinatesString),
         position: LatLng(startLatitude, startLongitude),
@@ -126,7 +246,6 @@ class _PaathaiMapState extends State<PaathaiMap> {
         ),
         icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
       );
-
 
       Marker destinationMarker = Marker(
         markerId: MarkerId(destinationCoordinatesString),
@@ -138,9 +257,14 @@ class _PaathaiMapState extends State<PaathaiMap> {
         icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
       );
 
-    
+      // markers.add(Marker(
+      //       markerId: MarkerId('sourcePin'),
+      //       position: LatLng(9.680429, 80.015852),
+      //       icon: BitmapDescriptor.defaultMarker));
+
       markers.add(startMarker);
       markers.add(destinationMarker);
+      // fetchAllContact();
 
       print(
         'START COORDINATES: ($startLatitude, $startLongitude)',
@@ -168,7 +292,6 @@ class _PaathaiMapState extends State<PaathaiMap> {
       double northEastLatitude = maxy;
       double northEastLongitude = maxx;
 
-
       mapController.animateCamera(
         CameraUpdate.newLatLngBounds(
           LatLngBounds(
@@ -178,8 +301,8 @@ class _PaathaiMapState extends State<PaathaiMap> {
           100.0,
         ),
       );
-
-
+      // print("object $northEastLatitude, $northEastLongitude");
+      // print( "$startLatitude, $startLongitude, $destinationLatitude, $destinationLongitude");
 
       await _createPolylines(startLatitude, startLongitude, destinationLatitude,
           destinationLongitude);
@@ -222,12 +345,28 @@ class _PaathaiMapState extends State<PaathaiMap> {
       "AIzaSyDM8U1e_9FPJqaCu4Vv0YrMxj6vqEyWyiA",
       PointLatLng(startLatitude, startLongitude),
       PointLatLng(destinationLatitude, destinationLongitude),
-      travelMode: TravelMode.transit,    
+      travelMode: TravelMode.driving,
     );
 
     if (result.points.isNotEmpty) {
       result.points.forEach((PointLatLng point) {
         polylineCoordinates.add(LatLng(point.latitude, point.longitude));
+        // polylineCoordinates.add(LatLng(9.67812, 80.01704));
+        // polylineCoordinates.add(LatLng(9.66159, 80.02541));
+        // polylineCoordinates.add(LatLng(9.677436, 80.013657));
+        // polylineCoordinates.add(LatLng(9.678043, 80.012775));
+        // polylineCoordinates.add(LatLng(9.678304, 80.011699));
+        // polylineCoordinates.add(LatLng(9.679795, 80.012294));
+        print("------------------------");
+//         print({point.latitude, point.longitude});
+//         //print(polylineCoordinates);
+// print(double.parse((9.661607564989831).toStringAsFixed(5)));
+// print(double.parse((80.02541339235292).toStringAsFixed(5)));
+//         print(double.parse((startLatitude).toStringAsFixed(5)).toString() + " " + startLongitude.toString());
+//         print(double.parse((startLongitude).toStringAsFixed(5)).toString() + " " + startLongitude.toString());
+//         print(startLatitude.toString() + " " + startLongitude.toString());
+        // print(destinationLatitude.toString() + " " + destinationLongitude.toString());
+        print("------------------------");
       });
     }
 
@@ -237,7 +376,6 @@ class _PaathaiMapState extends State<PaathaiMap> {
       color: Colors.red,
       points: polylineCoordinates,
       width: 3,
-      
     );
     polylines[id] = polyline;
   }
@@ -270,14 +408,80 @@ class _PaathaiMapState extends State<PaathaiMap> {
               myLocationEnabled: true,
               myLocationButtonEnabled: false,
               mapType: MapType.normal,
-              trafficEnabled:true,
+              trafficEnabled: true,
               zoomGesturesEnabled: true,
               zoomControlsEnabled: false,
-              mapToolbarEnabled: true,            
+              mapToolbarEnabled: true,
               polylines: Set<Polyline>.of(polylines.values),
               onMapCreated: (GoogleMapController controller) {
                 mapController = controller;
               },
+            ),
+            SingleChildScrollView(
+              child: Padding(
+                padding: EdgeInsets.only(
+                    top: height * 9.5 / 20, left: 10, right: 10),
+                child: Column(
+                  // mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    // Text("data"),
+                    Container(
+                      // height: height * 13.5/20,
+                      decoration: new BoxDecoration(
+                        borderRadius: new BorderRadius.circular(16.0),
+                        // color: Colors.green.withOpacity(0.5),
+                      ),
+                      child: SingleChildScrollView(
+                        child: _loader == true ? Center(child: CupertinoActivityIndicator()) : Container(
+                          child: listnew.length == 0 ? Text("data") : ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: listnew.length,
+                            itemBuilder: (BuildContext context, int index) {
+                              return GestureDetector(
+                                onTap: (){
+                                  print("object $index");
+                                  // startAddressFocusNode.unfocus();
+                                  // desrinationAddressFocusNode.unfocus();
+                                  // setState(() {
+                                  //   if (markers.isNotEmpty) markers.clear();
+                                  //   if (polylines.isNotEmpty) polylines.clear();
+                                  //   if (polylineCoordinates.isNotEmpty)
+                                  //     polylineCoordinates.clear();
+                                  //   _placeDistance = null;
+                                  // });
+                                  _calculateDistance().then((isCalculated) {
+                                    if (isCalculated) {
+                                    } else {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Invalid Place'),
+                                        ),
+                                      );
+                                    }
+                                  });
+                                },
+                                child: Card(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(18.0),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                      children: [
+                                        Text(listnew[index]['busNo'].toString()),
+                                        // Text(listnew[index]['points'][1].toString())
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
             SafeArea(
               child: Align(
@@ -303,6 +507,33 @@ class _PaathaiMapState extends State<PaathaiMap> {
                           SizedBox(height: 10),
                           Distance(),
                           SizedBox(height: 5),
+                          TextButton(
+                              onPressed: () {
+                                getData();
+                                // receiveData();
+                              },
+                              child: Text("Getdata")),
+                          TextButton(
+                              onPressed: () {
+
+                                FirebaseFirestore.instance
+                                    .collection('newroutes')
+                                    .add({
+                                      'busNo': 769,
+                                      'points': [
+                                        {"lon": "31,21"},
+                                        {"lon": "22,11"}
+                                      ]
+                                    })
+                                    .then((value) => print("routes Added"))
+                                    .catchError((error) =>
+                                        print("Failed to add user: $error"));
+
+                                print("object");
+                                print(listnew);
+                                print("-------");
+                              },
+                              child: Text("adddata"))
                         ],
                       ),
                     ),
@@ -337,7 +568,7 @@ class _PaathaiMapState extends State<PaathaiMap> {
                                   _currentPosition.latitude,
                                   _currentPosition.longitude,
                                 ),
-                                zoom: 15.0,
+                                zoom: 16.0,
                               ),
                             ),
                           );
@@ -427,15 +658,15 @@ class _PaathaiMapState extends State<PaathaiMap> {
 
   Visibility Distance() {
     return Visibility(
-                          visible: _placeDistance == null ? false : true,
-                          child: Text(
-                            'DISTANCE: $_placeDistance km',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        );
+      visible: _placeDistance == null ? false : true,
+      child: Text(
+        'DISTANCE: $_placeDistance km',
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
   }
 
   Container Start(double width) {
@@ -533,7 +764,6 @@ class _PaathaiMapState extends State<PaathaiMap> {
                       });
                       _calculateDistance().then((isCalculated) {
                         if (isCalculated) {
-                     
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(

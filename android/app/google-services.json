@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "475191681643",
+    "project_id": "paathai-route-check",
+    "storage_bucket": "paathai-route-check.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:475191681643:android:3a0c6a707d4050a397472e",
+        "android_client_info": {
+          "package_name": "com.example.paathai"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "475191681643-7j0m08c0f16i7kml8d1sv3cpq49ck0nm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBxVamma9u2gcrguwWvCQJRx5ejEF2yO3A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "475191681643-7j0m08c0f16i7kml8d1sv3cpq49ck0nm.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
