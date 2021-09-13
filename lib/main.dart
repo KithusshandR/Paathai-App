@@ -5,10 +5,12 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_google_places/flutter_google_places.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
-import 'package:geocoding/geocoding.dart';
+import 'package:geocoding/geocoding.dart' as routing;
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:google_maps_webservice/places.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -128,9 +130,10 @@ class _PaathaiMapState extends State<PaathaiMap> {
     //     .get();
 
     try {
-      List<Location> startPlacemark = await locationFromAddress(_startAddress);
-      List<Location> destinationPlacemark =
-          await locationFromAddress(_destinationAddress);
+      List<routing.Location> startPlacemark =
+          await routing.locationFromAddress(_startAddress);
+      List<routing.Location> destinationPlacemark =
+          await routing.locationFromAddress(_destinationAddress);
 
       print("startPlacemark");
       print(startPlacemark[0].latitude);
@@ -151,64 +154,67 @@ class _PaathaiMapState extends State<PaathaiMap> {
       print("9.679359503901455, 80.01212433990347");
       QuerySnapshot querySnapshot = await FirebaseFirestore.instance
           .collection('newroutes')
-          .where("points", arrayContains: {"startLatLon": StartlatlanString, "startLatLon": DestinationlatlanString })
+          .where("points", arrayContains: {
+        "startLatLon": StartlatlanString,
+        "startLatLon": DestinationlatlanString
+      })
           // .where("points", arrayContains: "abcd")
-          
+
           // .where('points', arrayContains: {"startLatLon": StartlatlanString })
-              .get();
+          .get();
       // QuerySnapshot destLatLon = await FirebaseFirestore.instance
       //     .collection('newroutes')
       //     .where('points',
       //         arrayContains: {"startLatLon": "9.679359503901455, 80.01212433990347"}).get();
 
       // if (querySnapshot.docs.length != 0 && destLatLon.docs.length != 0) {
-        print("DestinationlatlanString");
-        print(DestinationlatlanString);
+      print("DestinationlatlanString");
+      print(DestinationlatlanString);
 
-        // Get data from docs and convert map to List
-        final allData = querySnapshot.docs.map((doc) => doc.data()).toList();
-        // final allDatadestLatLon = destLatLon.docs.map((doc) => doc.data()).toList();
-        //for a specific field
-        // final allData =
-        //         querySnapshot.docs.map((doc) => doc.get('points')).toList();
-        // listnew.add(allData[0]);
-        // print(listnew);
-        // listnew.clear();
-        print(listnew.length == 0 ? "1" : "2");
-        for (var allitem in allData) {
-          listnew.add(allitem);
-          // print(allitem);
-        }
-        // for (var item in listnew) {
-        //   print("---item----");
-        //   print(item['points']);
-        //   for (var subItem in item['points']) {
-        //     if(subItem['startLatLon'] == DestinationlatlanString){
-        //       print(subItem);
-        //     }
-        //     // print(subItem['startLatLon']);
-        //   }
-        //   print("----item---");
-        // }
-        
-        // listnew.map((name) {
-        //   print("---item----");
-        // print(name);
-        // print("---item----");
-        // }).toList();
-        print("-------");
-        print(allData);
-        print("allData");
-        // print(allDatadestLatLon);
-        print("-------");
+      // Get data from docs and convert map to List
+      final allData = querySnapshot.docs.map((doc) => doc.data()).toList();
+      // final allDatadestLatLon = destLatLon.docs.map((doc) => doc.data()).toList();
+      //for a specific field
+      // final allData =
+      //         querySnapshot.docs.map((doc) => doc.get('points')).toList();
+      // listnew.add(allData[0]);
+      // print(listnew);
+      // listnew.clear();
+      print(listnew.length == 0 ? "1" : "2");
+      for (var allitem in allData) {
+        listnew.add(allitem);
+        // print(allitem);
+      }
+      // for (var item in listnew) {
+      //   print("---item----");
+      //   print(item['points']);
+      //   for (var subItem in item['points']) {
+      //     if(subItem['startLatLon'] == DestinationlatlanString){
+      //       print(subItem);
+      //     }
+      //     // print(subItem['startLatLon']);
+      //   }
+      //   print("----item---");
+      // }
 
-        // QuerySnapshot querySnapshot = await FirebaseFirestore.instance.collection('arrayroutes').get();
-        // final allData = querySnapshot.docs.map((doc) => doc.data()).toList();
-        // print(allData);
-        // print("-------");
-        setState(() {
-          _loader = false;
-        });
+      // listnew.map((name) {
+      //   print("---item----");
+      // print(name);
+      // print("---item----");
+      // }).toList();
+      print("-------");
+      print(allData);
+      print("allData");
+      // print(allDatadestLatLon);
+      print("-------");
+
+      // QuerySnapshot querySnapshot = await FirebaseFirestore.instance.collection('arrayroutes').get();
+      // final allData = querySnapshot.docs.map((doc) => doc.data()).toList();
+      // print(allData);
+      // print("-------");
+      setState(() {
+        _loader = false;
+      });
       // }
     } catch (e) {
       print(e);
@@ -239,10 +245,10 @@ class _PaathaiMapState extends State<PaathaiMap> {
 
   _getAddress() async {
     try {
-      List<Placemark> p = await placemarkFromCoordinates(
+      List<routing.Placemark> p = await routing.placemarkFromCoordinates(
           _currentPosition.latitude, _currentPosition.longitude);
 
-      Placemark place = p[0];
+      routing.Placemark place = p[0];
 
       setState(() {
         _currentAddress =
@@ -265,9 +271,10 @@ class _PaathaiMapState extends State<PaathaiMap> {
 
   Future<bool> _calculateDistance() async {
     try {
-      List<Location> startPlacemark = await locationFromAddress(_startAddress);
-      List<Location> destinationPlacemark =
-          await locationFromAddress(_destinationAddress);
+      List<routing.Location> startPlacemark =
+          await routing.locationFromAddress(_startAddress);
+      List<routing.Location> destinationPlacemark =
+          await routing.locationFromAddress(_destinationAddress);
 
       print("startPlacemark");
       print(startPlacemark);
@@ -321,7 +328,8 @@ class _PaathaiMapState extends State<PaathaiMap> {
       // fetchAllContact();
 
       print('START COORDINATES: ($startLatitude, $startLongitude)');
-      print('DESTINATION COORDINATES: ($destinationLatitude, $destinationLongitude)');
+      print(
+          'DESTINATION COORDINATES: ($destinationLatitude, $destinationLongitude)');
 
       double miny = (startLatitude <= destinationLatitude)
           ? startLatitude
@@ -352,7 +360,8 @@ class _PaathaiMapState extends State<PaathaiMap> {
         ),
       );
 
-      await _createPolylines(startLatitude, startLongitude, destinationLatitude, destinationLongitude);
+      await _createPolylines(startLatitude, startLongitude, destinationLatitude,
+          destinationLongitude);
       // await _createPolylines(startLatLonFromFirestore, destinationLatitude, destinationLongitude);
 
       double totalDistance = 0.0;
@@ -393,7 +402,7 @@ class _PaathaiMapState extends State<PaathaiMap> {
       "AIzaSyDM8U1e_9FPJqaCu4Vv0YrMxj6vqEyWyiA",
       PointLatLng(startLatitude, startLongitude),
       PointLatLng(destinationLatitude, destinationLongitude),
-      travelMode: TravelMode.driving,
+      // travelMode: TravelMode.driving,
     );
 
     if (result.points.isNotEmpty) {
@@ -479,70 +488,90 @@ class _PaathaiMapState extends State<PaathaiMap> {
                         borderRadius: new BorderRadius.circular(16.0),
                         // color: Colors.green.withOpacity(0.5),
                       ),
-                      child: _showSuggestion == true ? Text("") : SingleChildScrollView(
-                        child: _loader == true
-                            ? Center(child: CupertinoActivityIndicator())
-                            : Container(
-                                child: listnew.length == 0
-                                    ? Text("No data")
-                                    : ListView.builder(
-                                        shrinkWrap: true,
-                                        itemCount: listnew.length,
-                                        itemBuilder:
-                                            (BuildContext context, int index) {
-                                          return GestureDetector(
-                                            onTap: () {
-                                              print("object $index");
-                                              // print(listnew[index]['points'][0]['startLatLon']);
-                                              print(listnew[index]['points'][0]);
-                                              setState(() {
-                                                 startLatLonFromFirestore = listnew[index]['points'][0]['startLatLon'];
-                                                 destLatLonFromFirestore = listnew[index]['points'][1]['startLatLon'];
-                                                 _showSuggestion = true;
-                                              });
-                                              startAddressFocusNode.unfocus();
-                                              desrinationAddressFocusNode.unfocus();
-                                              setState(() {
-                                                if (markers.isNotEmpty) markers.clear();
-                                                if (polylines.isNotEmpty) polylines.clear();
-                                                if (polylineCoordinates.isNotEmpty)
-                                                  polylineCoordinates.clear();
-                                                _placeDistance = null;
-                                              });
-                                              _calculateDistance().then((isCalculated) {
-                                                if (isCalculated) {
-                                                } else {
-                                                  ScaffoldMessenger.of(context)
-                                                      .showSnackBar(
-                                                    SnackBar(
-                                                      content:
-                                                          Text('Invalid Place'),
+                      child: _showSuggestion == true
+                          ? Text("")
+                          : SingleChildScrollView(
+                              child: _loader == true
+                                  ? Center(child: CupertinoActivityIndicator())
+                                  : Container(
+                                      child: listnew.length == 0
+                                          ? Text("No data")
+                                          : ListView.builder(
+                                              shrinkWrap: true,
+                                              itemCount: listnew.length,
+                                              itemBuilder:
+                                                  (BuildContext context,
+                                                      int index) {
+                                                return GestureDetector(
+                                                  onTap: () {
+                                                    print("object $index");
+                                                    // print(listnew[index]['points'][0]['startLatLon']);
+                                                    print(listnew[index]
+                                                        ['points'][0]);
+                                                    setState(() {
+                                                      startLatLonFromFirestore =
+                                                          listnew[index]
+                                                                  ['points'][0]
+                                                              ['startLatLon'];
+                                                      destLatLonFromFirestore =
+                                                          listnew[index]
+                                                                  ['points'][1]
+                                                              ['startLatLon'];
+                                                      _showSuggestion = true;
+                                                    });
+                                                    startAddressFocusNode
+                                                        .unfocus();
+                                                    desrinationAddressFocusNode
+                                                        .unfocus();
+                                                    setState(() {
+                                                      if (markers.isNotEmpty)
+                                                        markers.clear();
+                                                      if (polylines.isNotEmpty)
+                                                        polylines.clear();
+                                                      if (polylineCoordinates
+                                                          .isNotEmpty)
+                                                        polylineCoordinates
+                                                            .clear();
+                                                      _placeDistance = null;
+                                                    });
+                                                    _calculateDistance()
+                                                        .then((isCalculated) {
+                                                      if (isCalculated) {
+                                                      } else {
+                                                        ScaffoldMessenger.of(
+                                                                context)
+                                                            .showSnackBar(
+                                                          SnackBar(
+                                                            content: Text(
+                                                                'Invalid Place'),
+                                                          ),
+                                                        );
+                                                      }
+                                                    });
+                                                  },
+                                                  child: Card(
+                                                    child: Padding(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                              18.0),
+                                                      child: Row(
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .spaceAround,
+                                                        children: [
+                                                          Text(listnew[index]
+                                                                  ['busNo']
+                                                              .toString()),
+                                                          // Text(listnew[index]['points'][1].toString())
+                                                        ],
+                                                      ),
                                                     ),
-                                                  );
-                                                }
-                                              });
-                                            },
-                                            child: Card(
-                                              child: Padding(
-                                                padding:
-                                                    const EdgeInsets.all(18.0),
-                                                child: Row(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment
-                                                          .spaceAround,
-                                                  children: [
-                                                    Text(listnew[index]['busNo']
-                                                        .toString()),
-                                                    // Text(listnew[index]['points'][1].toString())
-                                                  ],
-                                                ),
-                                              ),
+                                                  ),
+                                                );
+                                              },
                                             ),
-                                          );
-                                        },
-                                      ),
-                              ),
-                      ),
+                                    ),
+                            ),
                     ),
                   ],
                 ),
@@ -577,11 +606,12 @@ class _PaathaiMapState extends State<PaathaiMap> {
                               //   getData();
                               //   // receiveData();
                               // },
-                              onPressed: (_startAddress != '' && _destinationAddress != '')
-                  ? () async {
-                      getData();
-                    }
-                  : null,
+                              onPressed: (_startAddress != '' &&
+                                      _destinationAddress != '')
+                                  ? () async {
+                                      getData();
+                                    }
+                                  : null,
                               child: Text("Getdata")),
                           TextButton(
                               onPressed: () {
@@ -591,9 +621,15 @@ class _PaathaiMapState extends State<PaathaiMap> {
                                       'busNo': 799,
                                       'busAddress': "Jaffna-manipay",
                                       'points': [
-                                        {"startLatLon": "9.66114981, 80.02554649999999"},
+                                        {
+                                          "startLatLon":
+                                              "9.66114981, 80.02554649999999"
+                                        },
                                         {"startLatLon": "9.6910824, 80.021143"},
-                                        {"startLatLon": "9.6791359503901455, 80.01212433990347"},
+                                        {
+                                          "startLatLon":
+                                              "9.6791359503901455, 80.01212433990347"
+                                        },
                                         {"startLatLon": "new"}
                                       ]
                                     })
@@ -784,6 +820,18 @@ class _PaathaiMapState extends State<PaathaiMap> {
         ),
         controller: startAddressController,
         focusNode: startAddressFocusNode,
+        onTap: () async {
+          Prediction? p = await PlacesAutocomplete.show(
+            context: context,
+            radius: 10000000,
+            types: [],
+            strictbounds: false,
+            apiKey: "AIzaSyCc9MHvnlfM8dwwuf4EC0cudRT30cr3A_w",
+            mode: Mode.overlay,
+            language: "en",
+            components: [Component(Component.country, "Lk")],
+          );
+        },
       ),
     );
   }
